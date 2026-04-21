@@ -1,0 +1,143 @@
+---
+title: "ESM262-A1"
+author: "Maya Scanlon"
+format: pdf
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r,include=FALSE}
+#| echo: false
+library(tinytex)
+library(tidyverse)
+library(ggplot2)
+library(here)
+library(patchwork)
+
+
+climate_data <- read_csv(here("data", "p301.csv"))
+climate_data
+
+```
+
+```{r,include=FALSE}
+#| echo: false
+
+## Exploratory Data Analysis 
+snoP_prelim <- climate_data %>% 
+  filter(wy >= "1976") %>% 
+  select(wy, month, snowpack, diffuse_solar, plant_carbon, NPP, tmax, tmin)
+snoP_prelim
+
+prelim_hist <- ggplot(climate_data, aes(x = tmax)) +
+  geom_histogram(bins = 50)
+prelim_hist
+
+density_norm <- ggplot(climate_data, aes(x = tmax)) +
+  geom_density()
+density_norm
+
+qq_norm <- ggplot(climate_data, aes(sample = tmax)) +
+  stat_qq() +
+  stat_qq_line()
+qq_norm
+
+snoP_p_visual <- ggplot(data = snoP_prelim, aes(x=plant_carbon, y=diffuse_solar, color = wy)) + 
+  geom_point() +
+  geom_jitter(width = 0.05) +
+  theme_bw()
+snoP_p_visual
+
+
+## Option #1 Just analyze specific months to understand how plant biomass, diffuse solar, and snowpack has changed over time (50 years) - multiple linear regression, create means, sum, max, per month for each year, for snowpack, April-July is probably the best time period to analyze, summarize by wy, find the means 
+## Option #2 Peak snowpack by water year (time series) - group by water year, summarize(peak_snowpack = max(snowpack, na.rm=TRUE))
+## ggplot x-wy y=peak_snowpack  
+  
+```
+
+**MOTIVATION:** For my first analysis, I evaluated peak snowpack values over a 40-year time period. Peak snowpack is an important hydrologic variable in mountain watersheds because it functions as a natural reservoir by releasing water throughout the year as snow melt. Snowpack was analyzed as an annual maximum because the survey measured on-the-ground snow stocks. Averaging or summing daily values would result in double-counting snow persisting across days and weeks.
+
+**RESULTS:** Peak annual snowpack at the study site varies across the study period, ranging from 0.10-1.10 m of snow water equivalent (Figure 1). Year-to-year variability was high, with neighboring years frequently differing by a factor of two or more. The highest peak snowpack occurred in water years 1968 (1.10 m) and 1983 (0.8 m), while the lowest values (\<0.15 m) were observed in the early 1960s, mid-1980s, and late 1990s. While a slight downward trend is visible in the figure, a linear regression does not support a statistically significant long-term trend in declining snowpack (p = 0.72).
+
+```{r}
+## ANALYSIS 1
+
+# data 
+peak_data <- climate_data %>% 
+  filter(wy >= 1960) %>% 
+  group_by(wy, year) %>% 
+  summarize(peak_snow = max(snowpack, na.rm = TRUE)) %>% 
+  select(wy, peak_snow) %>% 
+    mutate(date = make_date(wy, 4, 1))
+peak_data
+
+# normality check
+qq_peak_snow <- ggplot(peak_data, aes(sample = peak_snow)) +  
+  stat_qq()  + 
+  stat_qq_line() 
+  qq_peak_snow
+  
+# visual 
+p_snow_v1_s <- ggplot(peak_data, aes(x=date, y=peak_snow)) + 
+  geom_line(color = "#00A9FF") + 
+  geom_point(size = 0.9, color = "blue") + 
+  labs(caption = "Figure 1. Peak annual snowpack time series",
+         x= "Water Year (Oct-Sept)",
+       y=expression("Peak Snowpack (m/m"^2*")"), 
+       title ="Annual Peak Snowpack Over 40 Years (1960-2000)") +
+  theme_minimal()
+p_snow_v1_s
+
+lm(peak_snow ~ wy, data = peak_data) %>% summary()
+
+## ANALYSIS 2
+```
+
+**MOTIVATION:** The subsequent analysis evaluated the temporal relationship between snow storage (quantity of water stored as snow) and monthly streamflow fluxes over 40-years. Given that snowpack functions as a natural reservoir providing both groundwater and surface water recharge through snow melt, streamflow fluxes should follow snowpack dynamics with a seasonal lag. Examining these two variables together demonstrates changes in watershed dynamics over time, specifically the influence between snow storage and downstream water availability, and whether this coupling has shifted over the 40-year period. Streamflow is a daily flux, so monthly average values were calculated to smooth short-term variability while also preserving the seasonal cycles necessary for for the comparison.
+
+**RESULTS:** Average monthly streamflow at the study site varies across the 40-year study period, ranging from 0.00-0.018 m (Figure 2). Month-to-month variability contributed to high interannual variability, with subsequent years differing by a factor of one or more. Monthly flows consistently ranged between 0.005 and 0.010 m/day, with notable seasonal pulse events. The highest average streamflow values occurred in 1968 (0.018 m), 1994 (0.017 m), and 1961 (0.013 m). There are several multi-year periods where flows fall below 0.003 m/day, indicating suppressed flows. These periods are dispersed across the 40-year study period, with the longest being 1974-1978 and 1986-1983.
+
+```{r}
+## Make a data frame for streamflow and graph and patchwork together the graphs 
+
+# data
+stream_data <- climate_data %>% 
+  filter(wy >= 1960) %>% 
+  group_by(wy, month) %>% 
+  summarize(avg_monthly_stream = mean(streamflow, na.rm = TRUE), .groups = "drop") %>% 
+  mutate(
+         date = make_date(wy, month, 1))
+stream_data
+
+#visual
+st_vis <- ggplot(stream_data, aes(x=date, y=avg_monthly_stream)) + 
+  geom_line(color="coral") + 
+  labs(caption = "Figure 2. Mean monthly streamflow fluxes time series", 
+       x="Date", 
+       y= "Mean Streamflow (m/day)", 
+       title = "Average Monthly Streamflow Over 40 Years (1960-2000)") +
+  theme_minimal()
+st_vis
+
+```
+
+**COMPARISON:** Low streamflow periods (Figure 2) track the corresponding low-snowpack years in Figure 1, demonstrate the relationship between winter snow accumulation and seasonal streamflow rates. Visual comparison of the two time series (Figure 3) illustrates strong interannual coupling, with years of high peak snowpack generatating proportionally larger streamflow pulses, while extended low-snowpack periods correspond to suppressed or absent annual flow peaks. There are outlying instances, such as 1963 and 1988, in which moderate-high snowpack storage corresponds with relatively low streamflow rates (Figure 3). This decoupling could be a result of slow melting dynamics or high external evapotranspiration demands. Regardless, the recurring pattern of brief, high-magnitude pulses followed by prolonged near-zero flow is characteristic of a snowmelt-dominated hydrologic regime, in which water delivery is concentrated into a short melt window each spring and early summer rather than distributed evenly throughout the year.
+
+```{r}
+# patchwork, combined graph 
+a1_patch <- (p_snow_v1_s / st_vis) & 
+  theme_minimal(base_size = 10) &
+  theme( axis.title = element_text(size = 8),
+         plot.caption = element_blank(), 
+        plot.title = element_blank())
+
+a2_patch <- a1_patch + plot_annotation(
+  title = "Comparing Peak Annual Snowpack and Average Monthly Streamflow",
+  caption = "Figure 3. Peak annual snowpack and mean monthly streamflow, water years 1960-2000.",
+ theme = theme(
+    plot.title = element_text(size = 10, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 8, hjust = 0)
+  ))
+a2_patch
+```
