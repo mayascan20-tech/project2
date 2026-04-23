@@ -23,8 +23,6 @@ climate_data
 
 #swag
 
-hello
-
 ```{r,include=FALSE}
 #| echo: false
 
