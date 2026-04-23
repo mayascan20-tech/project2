@@ -23,6 +23,8 @@ climate_data
 
 #swag
 
+\%
+
 ```{r,include=FALSE}
 #| echo: false
 
