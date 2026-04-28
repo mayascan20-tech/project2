@@ -19,6 +19,9 @@ library(patchwork)
 climate_data <- read_csv(here("data", "p301.csv"))
 climate_data
 
+practicing
+
+
 ```
 
 ```{r,include=FALSE}
