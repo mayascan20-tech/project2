@@ -15,6 +15,7 @@ library(ggplot2)
 library(here)
 library(patchwork)
 
+#trying_to 
 
 climate_data <- read_csv(here("data", "p301.csv"))
 climate_data
